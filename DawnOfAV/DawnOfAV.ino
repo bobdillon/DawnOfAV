@@ -6,7 +6,7 @@
 //
 // Wire changes from original:
 //   - Move audio wire from D26 to GPIO 27
-//   - Add momentary buttons: GPIO 14 to GND, GPIO 12 to GND
+//   - Add momentary buttons: GPIO 14 to GND, GPIO 13 to GND
 
 #include "esp_pm.h"
 #include "Graphics.h"
@@ -24,7 +24,7 @@ Font font(8, 8, font88::pixels);
 // Pin configuration
 const int AUDIO_PIN = 27;       // LEDC PWM audio output
 const int PATTERN_BTN = 14;     // Button to cycle patterns (connect to GND)
-const int AUDIO_BTN = 12;       // Button to toggle audio (connect to GND)
+const int AUDIO_BTN = 13;       // Button to toggle audio (connect to GND)
 
 ////////////////////////////
 // Audio configuration via LEDC
