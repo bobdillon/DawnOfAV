@@ -1,175 +1,374 @@
-//code by bitluni give me a shout-out if you like it
+// CRT Video/Audio Tester - based on bitluni's DawnOfAV
+// NTSC color composite output on GPIO 25 (DAC1)
+// Audio test tone on GPIO 27 via LEDC PWM (avoids DAC conflict)
+// Pattern button on GPIO 14 (cycle test patterns)
+// Audio button on GPIO 12 (toggle continuous tone / momentary beep)
+//
+// Wire changes from original:
+//   - Move audio wire from D26 to GPIO 27
+//   - Add momentary buttons: GPIO 14 to GND, GPIO 12 to GND
 
 #include "esp_pm.h"
-#include "AudioSystem.h"
-#include "AudioOutput.h"
 #include "Graphics.h"
 #include "Image.h"
-//#include "SimplePALOutput.h"
 #include "SimpleNTSCOutput.h"
-#include "GameControllers.h"
-#include "Sprites.h"
 #include "Font.h"
 
-//lincude graphics and sounds
-namespace font88
-{
-#include "gfx/font.h"
+// Font
+namespace font88 {
+  #include "gfx/font.h"
 }
 Font font(8, 8, font88::pixels);
-#include "gfx/texture.h"
-#include "sfx/music.h"
 
 ////////////////////////////
-//controller pins
-const int LATCH = 16;
-const int CLOCK = 17;
-const int CONTROLLER_DATA_PIN = 18;
-GameControllers controllers;
+// Pin configuration
+const int AUDIO_PIN = 27;       // LEDC PWM audio output
+const int PATTERN_BTN = 14;     // Button to cycle patterns (connect to GND)
+const int AUDIO_BTN = 12;       // Button to toggle audio (connect to GND)
 
 ////////////////////////////
-//audio configuration
-const int SAMPLING_RATE = 20000;
-const int BUFFER_SIZE = 4000;
-AudioSystem audioSystem(SAMPLING_RATE, BUFFER_SIZE);
-AudioOutput audioOutput;
+// Audio configuration via LEDC
+const int LEDC_CHANNEL = 0;
+const int LEDC_RESOLUTION = 8;  // 8-bit resolution
+bool audioOn = false;
+bool lastAudioBtn = true;
+bool lastPatternBtn = true;
+unsigned long lastPatternPress = 0;
+unsigned long lastAudioPress = 0;
+const unsigned long DEBOUNCE_MS = 250;
 
-///////////////////////////
-//Video configuration
-//PAL MAX, half: 324x268 full: 648x536
-//NTSC MAX, half: 324x224 full: 648x448
+////////////////////////////
+// Video configuration
 const int XRES = 320;
-//const int YRES = 144;
 const int YRES = 240;
 Graphics graphics(XRES, YRES);
-//SimplePALOutput composite;
 SimpleNTSCOutput composite;
 
-void compositeCore(void *data)
-{
-  while (true)
-  {
+// Test pattern enum
+enum TestPattern {
+  PATTERN_COLOR_BARS,
+  PATTERN_SMPTE_BARS,
+  PATTERN_CROSSHATCH,
+  PATTERN_DOTS,
+  PATTERN_WHITE,
+  PATTERN_RED,
+  PATTERN_GREEN,
+  PATTERN_BLUE,
+  PATTERN_GRAY_RAMP,
+  PATTERN_CIRCLE,
+  PATTERN_CONVERGENCE,
+  PATTERN_COUNT
+};
+
+const char* patternNames[] = {
+  "COLOR BARS",
+  "SMPTE BARS",
+  "CROSSHATCH",
+  "DOT GRID",
+  "WHITE FIELD",
+  "RED FIELD",
+  "GREEN FIELD",
+  "BLUE FIELD",
+  "GRAY RAMP",
+  "CIRCLE",
+  "CONVERGENCE"
+};
+
+int currentPattern = 0;
+
+void compositeCore(void *data) {
+  while (true) {
     composite.sendFrame(&graphics.frame);
   }
 }
 
-int sintab[256];
-int costab[256];
+////////////////////////////
+// Audio functions using LEDC
+void audioSetup() {
+  ledcSetup(LEDC_CHANNEL, 1000, LEDC_RESOLUTION);  // 1kHz default
+  ledcAttachPin(AUDIO_PIN, LEDC_CHANNEL);
+  ledcWrite(LEDC_CHANNEL, 0);  // Start silent
+}
 
-void setup()
-{
-  //rtc_clk_cpu_freq_set(RTC_CPU_FREQ_240M);              //highest cpu frequency
-  //highest clockspeed needed
-  esp_pm_lock_handle_t powerManagementLock;
-  esp_pm_lock_create(ESP_PM_CPU_FREQ_MAX, 0, "compositeCorePerformanceLock", &powerManagementLock);
-  esp_pm_lock_acquire(powerManagementLock); 
-  //initialize composite output and graphics
-  composite.init();
-  graphics.init();
-  graphics.setFont(font);
-  xTaskCreatePinnedToCore(compositeCore, "compositeCoreTask", 1024, NULL, 1, NULL, 0);
+void audioToneOn(int freqHz) {
+  ledcWriteTone(LEDC_CHANNEL, freqHz);
+}
 
-  //too high load for NTSC  
-  //initialize audio output
-  //audioOutput.init(audioSystem);
+void audioToneOff() {
+  ledcWriteTone(LEDC_CHANNEL, 0);
+  ledcWrite(LEDC_CHANNEL, 0);
+}
 
-  //initialize controllers
-  controllers.init(LATCH, CLOCK);
-  controllers.setController(0, GameControllers::NES, CONTROLLER_DATA_PIN); //first controller
+////////////////////////////
+// Drawing helper functions
 
-  //Play first sound in loop (music)
-  //music.play(audioSystem, 0);
-
-  for(int i = 0; i < 256; i++)
-  {
-    sintab[i] = int(sin(i / 256.f * M_PI) * 256);
-    costab[i] = int(cos(i / 256.f * M_PI) * 80 * 256);
+void drawColorBars(Graphics &g) {
+  // Standard 8-bar color bars: White, Yellow, Cyan, Green, Magenta, Red, Blue, Black
+  const int barWidth = XRES / 8;
+  
+  // Colors in r4g4b4 format
+  unsigned int colors[] = {
+    g.rgb(255, 255, 255),  // White
+    g.rgb(255, 255, 0),    // Yellow
+    g.rgb(0, 255, 255),    // Cyan
+    g.rgb(0, 255, 0),      // Green
+    g.rgb(255, 0, 255),    // Magenta
+    g.rgb(255, 0, 0),      // Red
+    g.rgb(0, 0, 255),      // Blue
+    g.rgb(0, 0, 0),        // Black
+  };
+  
+  for (int i = 0; i < 8; i++) {
+    g.fillRect(i * barWidth, 0, barWidth, YRES, colors[i]);
   }
 }
 
-void loop()
-{
-  //fill audio buffer
-  //audioSystem.calcSamples();
-  
-/*  //read controllers
-  controllers.poll();
-  
-  //play sounds on A or B buttons
-  if(controllers.pressed(0, GameControllers::A))
-    sounds.play(audioSystem, 1);
-  if(controllers.pressed(0, GameControllers::B))
-    sounds.play(audioSystem, 2);*/
+void drawSMPTEBars(Graphics &g) {
+  // Top 2/3: standard color bars
+  const int barWidth = XRES / 7;
+  const int topHeight = YRES * 2 / 3;
+  const int midHeight = YRES / 12;
+  const int botHeight = YRES - topHeight - midHeight;
 
+  unsigned int topColors[] = {
+    g.rgb(192, 192, 192),  // Gray
+    g.rgb(192, 192, 0),    // Yellow
+    g.rgb(0, 192, 192),    // Cyan
+    g.rgb(0, 192, 0),      // Green
+    g.rgb(192, 0, 192),    // Magenta
+    g.rgb(192, 0, 0),      // Red
+    g.rgb(0, 0, 192),      // Blue
+  };
+
+  for (int i = 0; i < 7; i++) {
+    g.fillRect(i * barWidth, 0, barWidth, topHeight, topColors[i]);
+  }
+
+  // Middle strip: reverse bars (blue, black, magenta, black, cyan, black, gray)
+  unsigned int midColors[] = {
+    g.rgb(0, 0, 192),
+    g.rgb(16, 16, 16),
+    g.rgb(192, 0, 192),
+    g.rgb(16, 16, 16),
+    g.rgb(0, 192, 192),
+    g.rgb(16, 16, 16),
+    g.rgb(192, 192, 192),
+  };
+  for (int i = 0; i < 7; i++) {
+    g.fillRect(i * barWidth, topHeight, barWidth, midHeight, midColors[i]);
+  }
+
+  // Bottom strip: grayscale ramp
+  int botSections = 4;
+  int secWidth = XRES / botSections;
+  for (int i = 0; i < botSections; i++) {
+    int v = (i * 255) / (botSections - 1);
+    g.fillRect(i * secWidth, topHeight + midHeight, secWidth, botHeight, g.rgb(v, v, v));
+  }
+}
+
+void drawCrosshatch(Graphics &g) {
+  // Black background
+  g.fillRect(0, 0, XRES, YRES, g.rgb(0, 0, 0));
+  
+  unsigned int white = g.rgb(255, 255, 255);
+  int spacingX = 32;
+  int spacingY = 30;
+  
+  // Vertical lines
+  for (int x = 0; x < XRES; x += spacingX) {
+    g.line(x, 0, x, YRES - 1, white);
+  }
+  // Horizontal lines
+  for (int y = 0; y < YRES; y += spacingY) {
+    g.line(0, y, XRES - 1, y, white);
+  }
+  // Border
+  g.line(0, 0, XRES - 1, 0, white);
+  g.line(0, YRES - 1, XRES - 1, YRES - 1, white);
+  g.line(0, 0, 0, YRES - 1, white);
+  g.line(XRES - 1, 0, XRES - 1, YRES - 1, white);
+}
+
+void drawDotGrid(Graphics &g) {
+  g.fillRect(0, 0, XRES, YRES, g.rgb(0, 0, 0));
+  unsigned int white = g.rgb(255, 255, 255);
+  
+  for (int y = 15; y < YRES; y += 30) {
+    for (int x = 16; x < XRES; x += 32) {
+      g.dot(x, y, white);
+      g.dot(x + 1, y, white);
+      g.dot(x, y + 1, white);
+      g.dot(x + 1, y + 1, white);
+    }
+  }
+}
+
+void drawSolidField(Graphics &g, int r, int gr, int b) {
+  g.fillRect(0, 0, XRES, YRES, g.rgb(r, gr, b));
+}
+
+void drawGrayRamp(Graphics &g) {
+  for (int x = 0; x < XRES; x++) {
+    int v = (x * 255) / XRES;
+    unsigned int c = g.rgb(v, v, v);
+    for (int y = 0; y < YRES; y++) {
+      g.dot(x, y, c);
+    }
+  }
+}
+
+void drawCircle(Graphics &g) {
+  g.fillRect(0, 0, XRES, YRES, g.rgb(0, 0, 0));
+  unsigned int white = g.rgb(255, 255, 255);
+  
+  int cx = XRES / 2;
+  int cy = YRES / 2;
+  int radius = YRES / 2 - 10;
+  
+  // Draw circle using Bresenham-ish approach
+  for (int angle = 0; angle < 3600; angle++) {
+    float rad = angle * M_PI / 1800.0;
+    int x = cx + (int)(radius * cos(rad));
+    int y = cy + (int)(radius * sin(rad));
+    g.dot(x, y, white);
+  }
+  
+  // Crosshair
+  g.line(cx - radius, cy, cx + radius, cy, white);
+  g.line(cx, cy - radius, cx, cy + radius, white);
+  
+  // Inner circle at half radius
+  int r2 = radius / 2;
+  for (int angle = 0; angle < 3600; angle++) {
+    float rad = angle * M_PI / 1800.0;
+    int x = cx + (int)(r2 * cos(rad));
+    int y = cy + (int)(r2 * sin(rad));
+    g.dot(x, y, white);
+  }
+}
+
+void drawConvergence(Graphics &g) {
+  // RGB convergence pattern - colored crosshatch
+  g.fillRect(0, 0, XRES, YRES, g.rgb(0, 0, 0));
+
+  unsigned int red = g.rgb(255, 0, 0);
+  unsigned int green = g.rgb(0, 255, 0);
+  unsigned int blue = g.rgb(0, 0, 255);
+  unsigned int white = g.rgb(255, 255, 255);
+  
+  int spacingX = 32;
+  int spacingY = 30;
+  
+  // Red vertical lines
+  for (int x = 0; x < XRES; x += spacingX) {
+    g.line(x, 0, x, YRES - 1, red);
+  }
+  // Green horizontal lines
+  for (int y = 0; y < YRES; y += spacingY) {
+    g.line(0, y, XRES - 1, y, green);
+  }
+  // Blue diagonals
+  g.line(0, 0, XRES - 1, YRES - 1, blue);
+  g.line(XRES - 1, 0, 0, YRES - 1, blue);
+  
+  // White center cross
+  g.line(XRES / 2 - 20, YRES / 2, XRES / 2 + 20, YRES / 2, white);
+  g.line(XRES / 2, YRES / 2 - 20, XRES / 2, YRES / 2 + 20, white);
+}
+
+void drawPattern(int pattern) {
   graphics.begin(0);
-  //draw some sprites
-  int t = millis();
-  int rot = t / 100;
-  int lightpos = min(t / 78, 256);
-  int flare1 = min(t / 10, 256);
-  int flare2 = min((t - 120 * 78) / 5, 256);
-  for(int y = 0; y < 128; y++)
-  {
-    int vy = y - (lightpos >> 2) + 64;
-    if(vy >= 0 && vy < 240)
-      for(int x = 0; x < 128; x++)
-      {
-        int c = (((texture.get(1, x * 2, y * 2) & 15 ) * flare1) >> 8) | 0x80;
-        graphics.backbuffer[vy][x + 32 + 64] = c;
-      }
-  }
-  for(int y = 255; y >= 0; y--)
-  {
-    int light = lightpos - 256 + y;
-    if(light > 256)
-      light = 256;
-    for(int x = 0; x < 256; x++)
-    {
-      int vx = (costab[x] >> 8) + 160;
-      int vy = ((sintab[x] * costab[y]) >> 16) + 180;
-      if(vy >= 240) continue;
-      if(light <= 0)
-        graphics.dotFast(vx, vy, graphics.rgb(0, 0, 0));
-      else
-      {
-          int c = texture.get(0, 256 - x, (-rot - y) & 511);
-          int r = (light * (c & 15)) >> 4;
-          int g = (light * ((c >> 4) & 15)) >> 4;
-          int b = (light * ((c >> 8) & 15)) >> 4;
-          graphics.dotFast(vx, vy, graphics.rgb(r, g, b));
-      }
-    }
-  }
-  if(lightpos > 120)
-  for(int y = 0; y < 256; y++)
-  {
-    int vy = y - (lightpos >> 2);
-    if(vy >= 0 && vy < 240)
-      for(int x = 0; x < 256; x++)
-      {
-        int c = (((texture.get(1, x, y) & 15 ) * flare2) >> 8);
-        unsigned short oc = graphics.backbuffer[vy][x + 32];
-        c += (oc & 15);
-        if(c > 15) c = 15;
-        graphics.backbuffer[vy][x + 32] = (oc & 0xf0) + c;
-      }
-  }  
 
-  int ttext = (t - 30000)/100;
-  if(ttext > 0)
-  {
-    char *text0 = "Greetings from bitluni's lab!";
-    char text[32];
-    int i = 0;
-    for(; i < ttext && i < 32; i++)
-    {
-      text[i] = text0[i];
-      if(!text[i]) break;
-    }
-    text[i] = 0;
-    graphics.setCursor(160 - 4 * i, 16);
-    graphics.setTextColor(graphics.rgb(255, 255, 255));
-    graphics.print(text);
+  switch (pattern) {
+    case PATTERN_COLOR_BARS:   drawColorBars(graphics); break;
+    case PATTERN_SMPTE_BARS:   drawSMPTEBars(graphics); break;
+    case PATTERN_CROSSHATCH:   drawCrosshatch(graphics); break;
+    case PATTERN_DOTS:         drawDotGrid(graphics); break;
+    case PATTERN_WHITE:        drawSolidField(graphics, 255, 255, 255); break;
+    case PATTERN_RED:          drawSolidField(graphics, 255, 0, 0); break;
+    case PATTERN_GREEN:        drawSolidField(graphics, 0, 255, 0); break;
+    case PATTERN_BLUE:         drawSolidField(graphics, 0, 0, 255); break;
+    case PATTERN_GRAY_RAMP:    drawGrayRamp(graphics); break;
+    case PATTERN_CIRCLE:       drawCircle(graphics); break;
+    case PATTERN_CONVERGENCE:  drawConvergence(graphics); break;
   }
+
+  // Draw pattern name overlay at top
+  graphics.setTextColor(graphics.rgb(255, 255, 255));
+  int nameLen = strlen(patternNames[pattern]);
+  graphics.setCursor(XRES / 2 - nameLen * 4, 4);
+  graphics.print(patternNames[pattern]);
+
+  // Draw pattern number
+  char numStr[16];
+  sprintf(numStr, "%d/%d", pattern + 1, PATTERN_COUNT);
+  int numLen = strlen(numStr);
+  graphics.setCursor(XRES / 2 - numLen * 4, 14);
+  graphics.print(numStr);
+
+  // Audio indicator
+  if (audioOn) {
+    graphics.setCursor(XRES - 32, 4);
+    graphics.print("1kHz");
+  }
+
   graphics.end();
+}
+
+////////////////////////////
+// Setup and main loop
+
+void setup() {
+  // Max CPU frequency for stable video
+  esp_pm_lock_handle_t powerManagementLock;
+  esp_pm_lock_create(ESP_PM_CPU_FREQ_MAX, 0, "compositeCorePerformanceLock", &powerManagementLock);
+  esp_pm_lock_acquire(powerManagementLock);
+
+  // Initialize composite video
+  composite.init();
+  graphics.init();
+  graphics.setFont(font);
+
+  // Start video output on core 0
+  xTaskCreatePinnedToCore(compositeCore, "compositeCoreTask", 1024, NULL, 1, NULL, 0);
+
+  // Initialize audio via LEDC
+  audioSetup();
+
+  // Initialize buttons with internal pullups
+  pinMode(PATTERN_BTN, INPUT_PULLUP);
+  pinMode(AUDIO_BTN, INPUT_PULLUP);
+
+  // Draw initial pattern
+  drawPattern(currentPattern);
+}
+
+void loop() {
+  unsigned long now = millis();
+  
+  // Read pattern button (active low)
+  bool patternBtn = digitalRead(PATTERN_BTN);
+  if (!patternBtn && lastPatternBtn && (now - lastPatternPress > DEBOUNCE_MS)) {
+    currentPattern = (currentPattern + 1) % PATTERN_COUNT;
+    drawPattern(currentPattern);
+    lastPatternPress = now;
+  }
+  lastPatternBtn = patternBtn;
+
+  // Read audio button (active low) - toggle mode
+  bool audioBtn = digitalRead(AUDIO_BTN);
+  if (!audioBtn && lastAudioBtn && (now - lastAudioPress > DEBOUNCE_MS)) {
+    audioOn = !audioOn;
+    if (audioOn) {
+      audioToneOn(1000);  // 1kHz test tone
+    } else {
+      audioToneOff();
+    }
+    drawPattern(currentPattern);  // Redraw to update audio indicator
+    lastAudioPress = now;
+  }
+  lastAudioBtn = audioBtn;
+
+  delay(10);
 }
