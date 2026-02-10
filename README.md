@@ -1,43 +1,61 @@
 # DawnOfAV
 
-A sketch and instructions for emitting NTSC video color patterns and mono audio via arduino and some simple hadrware
+A sketch and instructions for emitting NTSC video color patterns and mono audio via Arduino ESP32.
 
-MANDATORY SETUP FOR ARDUINO IDE
-One time setup - 
-Add the esp32 URL to Arduino IDE with:
-File → Preferences → Additional Boards Manager URLs:
-https://dl.espressif.com/dl/package_esp32_index.json
-Must use esp32 by Espressif Systems V1.0.4 in boards manager
-Must use "No OTA (2MB APP/2MB SPIFFS)" or "Huge APP (3MB No OTA/1MB SPIFFS)"
-In Arduino IDE, select "ESP32 Dev Module" as the board.
+## Mandatory Setup for Arduino IDE
 
-Bill of materials 
-2 buttons
-1 project box
-1 toggle switch
-1 3.7V rechargable lipo
-1 J5019 or similar lipo recharge circuit
-1 arduino ESP32 Dev Kit V1
-1 usb female jack
-2 phono jacks ( composite and audio )
+**One-time setup:**
 
-wiring 
+1. Add the ESP32 URL to Arduino IDE:
+   - Go to `File → Preferences → Additional Boards Manager URLs`
+   - Add: `https://dl.espressif.com/dl/package_esp32_index.json`
 
-composite video jack 
-center pin GPIO 25
-ground/shell pin GND
+2. Install **esp32 by Espressif Systems V1.0.4** in Boards Manager
 
-audio jack 
-pin 1 GND
-pin 2 GPIO 27
+3. Select partition scheme: **"No OTA (2MB APP/2MB SPIFFS)"** or **"Huge APP (3MB No OTA/1MB SPIFFS)"**
 
-pattern button - cycles through 11 test patterns in a loop, one move per press
-pin 1 GND
-pin 2 GPIO 14
+4. In Arduino IDE, select **"ESP32 Dev Module"** as the board
 
-audio button - toggle on/off a continuous 1 Khz tone 
-pin 1 GND
-pin 2 GPIO 13 
+## Bill of Materials
 
-J5019 
-read the pcb. other than that, the toggle switch should bridge ground of the voltage source to the arduino ground when on. usb female jack goes here for charging, and then should be mounted externally
+- 2× momentary push buttons
+- 1× project box
+- 1× toggle switch
+- 1× 3.7V rechargeable LiPo battery
+- 1× J5019 (or similar) LiPo charge circuit
+- 1× Arduino ESP32 Dev Kit V1
+- 1× USB female jack
+- 2× phono jacks (composite video and audio)
+
+## Wiring
+
+### Composite Video Jack
+| Pin | Connection |
+|-----|------------|
+| Center pin | GPIO 25 |
+| Ground/shell | GND |
+
+### Audio Jack
+| Pin | Connection |
+|-----|------------|
+| Tip (pin 1) | GND |
+| Ring (pin 2) | GPIO 27 |
+
+### Pattern Button
+Cycles through 11 test patterns in a loop, one move per press.
+
+| Pin | Connection |
+|-----|------------|
+| Pin 1 | GND |
+| Pin 2 | GPIO 14 |
+
+### Audio Button
+Toggle on/off a continuous 1 kHz tone.
+
+| Pin | Connection |
+|-----|------------|
+| Pin 1 | GND |
+| Pin 2 | GPIO 13 |
+
+### J5019 Charge Circuit
+Read the PCB markings for proper connections. The toggle switch should bridge the ground of the voltage source to the Arduino ground when on. The USB female jack goes here for charging and should be mounted externally.
