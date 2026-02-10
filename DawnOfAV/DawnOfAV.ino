@@ -2,12 +2,13 @@
 // NTSC color composite output on GPIO 25 (DAC1)
 // Audio test tone on GPIO 27 via LEDC PWM (avoids DAC conflict)
 // Pattern button on GPIO 14 (cycle test patterns)
-// Audio button on GPIO 12 (toggle continuous tone / momentary beep)
+// Audio button on GPIO 13 (toggle continuous tone / momentary beep)
 //
 // Wire changes from original:
 //   - Move audio wire from D26 to GPIO 27
 //   - Add momentary buttons: GPIO 14 to GND, GPIO 13 to GND
-
+//  Must use esp32 by Espressif Systems V1.0.4 in boards manager
+//  Must use "No OTA (2MB APP/2MB SPIFFS)" or "Huge APP (3MB No OTA/1MB SPIFFS)"
 #include "esp_pm.h"
 #include "Graphics.h"
 #include "Image.h"
