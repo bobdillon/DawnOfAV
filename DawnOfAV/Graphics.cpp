@@ -1,17 +1,14 @@
 #pragma once
 #include "Graphics.h"
 #include "Font.h"
-#include "TriangleTree.h"
 #include <stdlib.h>
 
-Graphics::Graphics(int w, int h, int initialTrinagleBufferSize)
+Graphics::Graphics(int w, int h)
   :xres(w), 
   yres(h)
 {
   font = 0;
   cursorX = cursorY = cursorBaseX = 0;
-  trinagleBufferSize = initialTrinagleBufferSize;
-  triangleCount = 0;
   frontColor = 0xffff;
   backColor = 0;
 }
@@ -35,7 +32,6 @@ void Graphics::init()
     backbuffer[y] = (char*)malloc(xres);
     //zbuffer[y] = (char*)malloc(xres);
   }
-  triangleBuffer = (TriangleTree*)malloc(sizeof(TriangleTree) * trinagleBufferSize);
 }
 
 void Graphics::setFont(Font &font)
@@ -92,14 +88,6 @@ void Graphics::begin(int clear)
     for(int y = 0; y < yres; y++)
       for(int x = 0; x < xres; x++)
         dotFast(x, y, clear);
-  triangleCount = 0;
-  triangleRoot = 0;
-}
-
-void Graphics::flush()
-{
-  if(triangleRoot)
-    triangleRoot->draw(*this);
 }
 
 void Graphics::end()
@@ -107,17 +95,6 @@ void Graphics::end()
   char **b = backbuffer;
   backbuffer = frame;
   frame = b;    
-}
-
-void Graphics::enqueueTriangle(short *v0, short *v1, short *v2, unsigned int color)
-{
-  if(triangleCount >= trinagleBufferSize) return;
-  TriangleTree &t = triangleBuffer[triangleCount++];
-  t.set(v0, v1, v2, color);
-  if(triangleRoot)
-    triangleRoot->add(&triangleRoot, t);
-  else
-    triangleRoot = &t;
 }
 
 void Graphics::triangle(short *v0, short *v1, short *v2, unsigned int color)
