@@ -1,6 +1,5 @@
 #pragma once
 #include "RGB2YUV.h"
-class TriangleTree;
 class Font;
 
 class Graphics
@@ -14,13 +13,8 @@ class Graphics
   int cursorX, cursorY, cursorBaseX;
   unsigned int frontColor, backColor;
   Font *font;
-  
-  TriangleTree *triangleBuffer;
-  TriangleTree *triangleRoot;
-  int trinagleBufferSize;
-  int triangleCount;
 
-  Graphics(int w, int h, int initialTrinagleBufferSize = 0);
+  Graphics(int w, int h);
   void setTextColor(int front, int back = 0);
   void init();
   
@@ -30,7 +24,6 @@ class Graphics
   void print(int number, int base = 10, int minCharacters = 1);
   
   void begin(int clear = -1);
-  void flush();
   void end();
 
   inline void dotFast(int x, int y, unsigned int color)
@@ -105,7 +98,6 @@ class Graphics
     return (r >> 4) + (g & 0xf0) + ((b & 0xf0) << 4) + ((b & 0xf0) << 12);
   }
     
-  void enqueueTriangle(short *v0, short *v1, short *v2, unsigned int color);
   void triangle(short *v0, short *v1, short *v2, unsigned int color); 
   void line(int x1, int y1, int x2, int y2, unsigned int color);
   void fillRect(int x, int y, int w, int h, unsigned int color);
