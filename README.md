@@ -1,15 +1,15 @@
 # DawnOfAV
 
-A sketch and instructions for emitting NTSC video color patterns and mono audio via arduino
+A sketch and instructions for emitting NTSC video color patterns and mono audio via arduino and some simple hadrware
 
 MANDATORY SETUP FOR ARDUINO IDE
-//  One time setup - 
-    Add the esp32 URL to Arduino IDE with:
-    File → Preferences → Additional Boards Manager URLs:
-    https://dl.espressif.com/dl/package_esp32_index.json
-//  Must use esp32 by Espressif Systems V1.0.4 in boards manager
-//  Must use "No OTA (2MB APP/2MB SPIFFS)" or "Huge APP (3MB No OTA/1MB SPIFFS)"
-//  In Arduino IDE, select "ESP32 Dev Module" as the board.
+One time setup - 
+Add the esp32 URL to Arduino IDE with:
+File → Preferences → Additional Boards Manager URLs:
+https://dl.espressif.com/dl/package_esp32_index.json
+Must use esp32 by Espressif Systems V1.0.4 in boards manager
+Must use "No OTA (2MB APP/2MB SPIFFS)" or "Huge APP (3MB No OTA/1MB SPIFFS)"
+In Arduino IDE, select "ESP32 Dev Module" as the board.
 
 Bill of materials 
 2 buttons
@@ -19,6 +19,7 @@ Bill of materials
 1 J5019 or similar lipo recharge circuit
 1 arduino ESP32 Dev Kit V1
 1 usb female jack
+2 phono jacks ( composite and audio )
 
 wiring 
 
