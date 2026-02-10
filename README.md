@@ -18,6 +18,7 @@ Bill of materials
 1 3.7V rechargable lipo
 1 J5019 or similar lipo recharge circuit
 1 arduino ESP32 Dev Kit V1
+1 usb female jack
 
 wiring 
 
@@ -38,4 +39,4 @@ pin 1 GND
 pin 2 GPIO 13 
 
 J5019 
-read the pcb. other than that, the toggle switch should bridge ground of the voltage source to the arduino ground when on. 
+read the pcb. other than that, the toggle switch should bridge ground of the voltage source to the arduino ground when on. usb female jack goes here for charging, and then should be mounted externally
